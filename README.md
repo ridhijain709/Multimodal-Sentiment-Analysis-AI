@@ -1,11 +1,12 @@
 ---
-title: Aicteibmai
+---
+title: Multimodal Sentiment AI
 emoji: 🚀
-colorFrom: red
-colorTo: red
+colorFrom: blue
+colorTo: purple
 sdk: streamlit
+sdk_version: 1.31.0
 app_file: app.py
-pinned: false
 ---
 ---
 short_description: Streamlit template space
