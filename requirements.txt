@@ -4,8 +4,10 @@ numpy
 plotly
 matplotlib
 seaborn
-transformers
-torch
+
+torch==2.1.0
+transformers==4.37.2
+
 fer
 opencv-python-headless
 SpeechRecognition
@@ -15,4 +17,3 @@ pillow
 google-generativeai
 gTTS
 pydub
-
