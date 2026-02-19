@@ -1,0 +1,16 @@
+streamlit
+pandas
+matplotlib
+seaborn
+transformers
+torch
+fer
+opencv-python-headless
+gTTS
+speech_recognition
+librosa
+torchaudio
+plotly
+scikit-image
+google-generativeai
+git+https://github.com/ridhijain709/metallama.git # Updated: Metallama from Git repository
