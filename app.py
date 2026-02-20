@@ -59,31 +59,36 @@ def analyze_voice(audio_file):
     return text, sentiment, score
 
 
+# Replace your current analyze_video function with this:
 def analyze_video(video_file):
-    detector = FER()
-
+    from transformers import pipeline
+    from PIL import Image
+    
+    # Load a robust image emotion classifier
+    classifier = pipeline("image-classification", model="dima806/facial_emotions_image_detection")
+    
     with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as tmp:
         tmp.write(video_file.read())
         path = tmp.name
 
     cap = cv2.VideoCapture(path)
     emotions = []
-
-    while cap.isOpened():
+    
+    # Sample 5-10 frames for processing speed
+    for i in range(25):
         ret, frame = cap.read()
-        if not ret:
-            break
-
-        result = detector.detect_emotions(frame)
-        if result:
-            emotions.append(max(result[0]["emotions"], key=result[0]["emotions"].get))
-
+        if not ret: break
+        if i % 5 == 0:
+            img = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            pil_img = Image.fromarray(img)
+            res = classifier(pil_img)
+            emotions.append(res[0]['label'])
+            
     cap.release()
-
+    
     if emotions:
         return max(set(emotions), key=emotions.count)
-
-    return "No emotion detected"
+    return "Neutral"
 
 
 def gemini_generate(prompt):
