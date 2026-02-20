@@ -1,12 +1,25 @@
 ---
-title: AI Customer Vision Pro
+title: AI Customer Sentiment Pro
 emoji: 🤖
 colorFrom: blue
 colorTo: purple
 sdk: streamlit
 sdk_version: "1.31.0"
+python_version: "3.10"
 app_file: app.py
 pinned: false
+
+# AI Customer Sentiment Intelligence Platform
+
+Multimodal AI system using:
+
+- Text sentiment analysis
+- Voice sentiment analysis
+- Video emotion recognition
+- Gemini AI business insights
+- Customer analytics dashboard
+
+Built for IBM AI Internship Project.
 ---
 
 # 🌟 AI Customer Vision Pro — Multimodal Sentiment Intelligence Platform
