@@ -1,230 +1,125 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
 import plotly.express as px
+import google.generativeai as genai
+from transformers import pipeline
+import speech_recognition as sr
+from PIL import Image
+import cv2
 import tempfile
 import os
-import cv2
-import librosa
-import speech_recognition as sr
-from fer import FER
-from transformers import pipeline
-import google.generativeai as genai
-import datetime
 
-# ================= CONFIG =================
-st.set_page_config(page_title="AI Customer Vision Pro", layout="wide")
+# --- PAGE CONFIG ---
+st.set_page_config(page_title="IBM AI Multimodal Pro v5", layout="wide")
+st.title("🚀 AI Customer Intelligence & Strategy Dashboard")
 
-st.title("🌟 AI Customer Vision Pro")
-st.markdown("Multimodal Customer Sentiment Intelligence Platform")
-
-# ================= GEMINI =================
+# --- 2026 GEN AI SETUP (404 FIX) ---
 if "GEMINI_API_KEY" in st.secrets:
     genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-    gemini = genai.GenerativeModel("gemini-pro")
-else:
-    gemini = None
-    st.warning("Add GEMINI_API_KEY in Secrets")
-
-# ================= MODELS =================
-@st.cache_resource
-def load_sentiment():
-    return pipeline("sentiment-analysis")
-
-sentiment_model = load_sentiment()
-
-# ================= FUNCTIONS =================
-
-def analyze_text(text):
-    result = sentiment_model(text)[0]
-    return result["label"], result["score"]
-
-
-def analyze_voice(audio_file):
-    recognizer = sr.Recognizer()
-
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp:
-        tmp.write(audio_file.read())
-        path = tmp.name
-
-    with sr.AudioFile(path) as source:
-        audio = recognizer.record(source)
-
+    # Logic to pick the best available 2026 model
     try:
-        text = recognizer.recognize_google(audio)
-    except:
-        text = "Could not understand"
-
-    sentiment, score = analyze_text(text)
-    return text, sentiment, score
-
-
-# Replace your current analyze_video function with this:
-def analyze_video(video_file):
-    from transformers import pipeline
-    from PIL import Image
-    
-    # Load a robust image emotion classifier
-    classifier = pipeline("image-classification", model="dima806/facial_emotions_image_detection")
-    
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as tmp:
-        tmp.write(video_file.read())
-        path = tmp.name
-
-    cap = cv2.VideoCapture(path)
-    emotions = []
-    
-    # Sample 5-10 frames for processing speed
-    for i in range(25):
-        ret, frame = cap.read()
-        if not ret: break
-        if i % 5 == 0:
-            img = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            pil_img = Image.fromarray(img)
-            res = classifier(pil_img)
-            emotions.append(res[0]['label'])
-            
-    cap.release()
-    
-    if emotions:
-        return max(set(emotions), key=emotions.count)
-    return "Neutral"
-
-
-def gemini_generate(prompt):
-    if gemini is None:
-        return "Gemini not configured"
-    return gemini.generate_content(prompt).text
-
-
-def fusion_score(text_sent, voice_sent, video_emotion):
-
-    score_map = {
-        "POSITIVE": 1,
-        "NEGATIVE": -1,
-        "NEUTRAL": 0,
-        "happy": 1,
-        "sad": -1,
-        "angry": -1,
-        "neutral": 0
-    }
-
-    scores = []
-
-    if text_sent:
-        scores.append(score_map.get(text_sent.upper(), 0))
-
-    if voice_sent:
-        scores.append(score_map.get(voice_sent.upper(), 0))
-
-    if video_emotion:
-        scores.append(score_map.get(video_emotion.lower(), 0))
-
-    if scores:
-        final = np.mean(scores)
-        if final > 0.2:
-            return "Positive"
-        elif final < -0.2:
-            return "Negative"
+        available_models = [m.name for m in genai.list_models()]
+        if 'models/gemini-3-flash-preview' in available_models:
+            model_id = "gemini-3-flash-preview"
+        elif 'models/gemini-1.5-flash' in available_models:
+            model_id = "gemini-1.5-flash"
         else:
-            return "Neutral"
+            model_id = "gemini-pro"
+        model = genai.GenerativeModel(model_id)
+        st.sidebar.success(f"Connected: {model_id}")
+    except:
+        st.sidebar.warning("API connection issues. Check Secret Key.")
+else:
+    st.error("Missing API Key in Secrets!")
 
-    return "Not enough data"
+# --- LOCAL AI ENGINES (NO QUOTA LIMITS) ---
+@st.cache_resource
+def load_ai_engines():
+    # Text Sentiment
+    txt_engine = pipeline("sentiment-analysis", model="distilbert-base-uncased-finetuned-sst-2-english")
+    # Video Emotion (Replaces broken FER)
+    vis_engine = pipeline("image-classification", model="dima806/facial_emotions_image_detection")
+    return txt_engine, vis_engine
 
+txt_ai, vis_ai = load_ai_engines()
 
-# ================= SESSION =================
-if "history" not in st.session_state:
-    st.session_state.history = []
+# --- APP LAYOUT ---
+tab1, tab2, tab3 = st.tabs(["🎙️ Multimodal Analysis", "📊 Data Dashboard", "🤖 GenAI Strategy"])
 
-# ================= INPUT =================
-st.sidebar.header("Upload CSV Data")
-csv_file = st.sidebar.file_uploader("Upload CSV", type=["csv"])
-
-text_input = st.text_area("Enter Text")
-
-audio_file = st.file_uploader("Upload Audio (wav)", type=["wav"])
-
-video_file = st.file_uploader("Upload Video (mp4)", type=["mp4"])
-
-# ================= TABS =================
-tab1, tab2, tab3 = st.tabs([
-    "📊 Dashboard",
-    "🧠 Gemini AI",
-    "📈 Fusion Intelligence"
-])
-
-# ================= DASHBOARD =================
+# --- TAB 1: VOICE, VIDEO, TEXT ---
 with tab1:
+    st.subheader("Live Sentiment Input")
+    c1, c2 = st.columns(2)
+    
+    with c1:
+        # Text Input
+        u_text = st.text_area("Customer Text Feedback:")
+        if u_text:
+            res = txt_ai(u_text)[0]
+            st.write(f"**Text Mood:** {res['label']} ({res['score']:.2f})")
+            st.session_state['t_data'] = f"Text: {res['label']}"
 
+        # Fixed Voice Input (v5)
+        v_file = st.file_uploader("Upload Customer Voice (.wav)", type=['wav'])
+        if v_file:
+            r = sr.Recognizer()
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp:
+                tmp.write(v_file.getvalue())
+                with sr.AudioFile(tmp.name) as source:
+                    audio_data = r.record(source)
+                    text = r.recognize_google(audio_data)
+                    st.success(f"Transcribed: {text}")
+                    st.session_state['a_data'] = f"Voice said: {text}"
+
+    with c2:
+        # Video Input
+        vid_file = st.file_uploader("Upload Customer Video (.mp4)", type=['mp4'])
+        if vid_file:
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as tmp:
+                tmp.write(vid_file.read())
+                cap = cv2.VideoCapture(tmp.name)
+                ret, frame = cap.read()
+                if ret:
+                    img = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+                    st.image(img, width=250)
+                    emo = vis_ai(img)[0]
+                    st.warning(f"Video Emotion: {emo['label']}")
+                    st.session_state['v_data'] = f"Video Emotion: {emo['label']}"
+                cap.release()
+
+# --- TAB 2: CSV DASHBOARD & GRAPHS ---
+with tab2:
+    st.subheader("Customer Data Insights")
+    csv_file = st.file_uploader("Upload CSV Data", type=['csv'])
     if csv_file:
         df = pd.read_csv(csv_file)
+        st.dataframe(df.head(5), use_container_width=True)
+        
+        # Interactive Plotly Graphs
+        col_x = st.selectbox("X-Axis (Category):", df.columns)
+        col_y = st.selectbox("Y-Axis (Value):", df.select_dtypes(include='number').columns)
+        
+        fig = px.bar(df, x=col_x, y=col_y, color=col_x, title=f"{col_y} by {col_x}", template="plotly_dark")
+        st.plotly_chart(fig, use_container_width=True)
+        st.session_state['csv_data'] = f"CSV Analytics: {len(df)} records analyzed."
 
-        if "review" in df.columns:
-            df["sentiment"] = df["review"].apply(lambda x: analyze_text(str(x))[0])
-
-            st.dataframe(df.head())
-
-            fig = px.histogram(df, x="sentiment", color="sentiment")
-            st.plotly_chart(fig)
-
-            st.session_state.df = df
-
-    if text_input:
-        label, score = analyze_text(text_input)
-        st.success(f"Text Sentiment: {label}")
-
-    if audio_file:
-        t, s, sc = analyze_voice(audio_file)
-        st.write("Transcription:", t)
-        st.write("Voice Sentiment:", s)
-
-        st.session_state.voice_sent = s
-
-    if video_file:
-        emo = analyze_video(video_file)
-        st.success(f"Video Emotion: {emo}")
-
-        st.session_state.video_emo = emo
-
-
-# ================= GEMINI =================
-with tab2:
-
-    question = st.text_area(
-        "Ask Business Question",
-        "What improvements should company make?"
-    )
-
-    if st.button("Generate Insights"):
-        response = gemini_generate(question)
-        st.write(response)
-
-    if st.button("Generate Executive Report"):
-
-        context = ""
-
-        if "df" in st.session_state:
-            context += st.session_state.df.head().to_string()
-
-        report = gemini_generate(
-            f"Create professional business report:\n{context}"
-        )
-
-        st.write(report)
-
-
-# ================= FUSION =================
+# --- TAB 3: GENERATIVE AI ---
 with tab3:
+    st.subheader("IBM Executive Progress Report")
+    if st.button("Generate Final AI Strategy"):
+        summary_ctx = f"""
+        {st.session_state.get('t_data', '')} 
+        {st.session_state.get('a_data', '')} 
+        {st.session_state.get('v_data', '')} 
+        {st.session_state.get('csv_data', '')}
+        """
+        prompt = f"As an IBM AI Intern, analyze this multimodal customer data and provide a 3-point strategy: {summary_ctx}"
+        
+        try:
+            with st.spinner("AI is calculating strategy..."):
+                response = model.generate_content(prompt)
+                st.markdown(response.text)
+        except Exception as e:
+            st.error(f"Quota reached. Try again in a few minutes or check your API key.")
 
-    text_sent = None
-    if text_input:
-        text_sent, _ = analyze_text(text_input)
 
-    voice_sent = st.session_state.get("voice_sent")
-    video_emo = st.session_state.get("video_emo")
-
-    if st.button("Calculate Fusion Score"):
-
-        result = fusion_score(text_sent, voice_sent, video_emo)
-
-        st.success(f"Overall Customer Emotion: {result}")
