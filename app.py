@@ -121,5 +121,3 @@ with tab3:
                 st.markdown(response.text)
         except Exception as e:
             st.error(f"Quota reached. Try again in a few minutes or check your API key.")
-
-
